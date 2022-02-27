@@ -57,15 +57,11 @@ func (wp *workerPool) Start(ctx context.Context) {
 	select {
 	case <-ctx.Done():
 		fmt.Println("shutdownctx")
-		// break
 	case <-ctx3.Done():
 		fmt.Println("timeout")
-		// break
 	}
-	fmt.Println("qwewre time")
 	cancel()
 	fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'+')
-
 	wp.wg.Wait()
 	close(wp.results)
 	return
@@ -85,20 +81,18 @@ func (wp *workerPool) run(ctx context.Context) {
 	//
 	// Keeps fetching task from the task channel, do the task,
 	// then makes sure to exit if context is done.
-	// defer wp.wg.Done()
+	defer wp.wg.Done()
 	for {
 		select {
-		case t,ok := <-wp.Tasks():
-			if ok {
-				fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'+')
-				result := t.Func(t.Args...)
-				fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'-')
-				wp.results <- result
-			}
 		case <-ctx.Done():
 			fmt.Println(ctx.Value("key"))
-			wp.wg.Done()
 			return
+		case t,ok := <-wp.Tasks():
+			if ok {
+				result := t.Func(t.Args...)
+				wp.results <- result
+			}
+		
 		}
 	}
 }

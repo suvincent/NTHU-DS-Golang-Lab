@@ -39,7 +39,7 @@ func sleepPrint(args ...interface{}) *Result {
 	}
 
 	time.Sleep(d)
-	fmt.Println("QQ",value)
+	fmt.Println(value)
 
 	return &Result{Value: value}
 }

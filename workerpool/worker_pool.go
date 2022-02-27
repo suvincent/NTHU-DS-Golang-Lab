@@ -46,29 +46,31 @@ func (wp *workerPool) Start(ctx context.Context) {
 	//
 	// Starts numWorkers of goroutines, wait until all jobs are done.
 	// Remember to closed the result channel before exit.
+	// defer close(wp.results)
 	ctx2, cancel := context.WithCancel(ctx)
 	ctx3, _ := context.WithTimeout(ctx, 1* time.Second)
 	for i:=0; i < wp.numWorkers; i++ {
 		wp.wg.Add(1)
-		go wp.run(ctx2)
+		Childctx := context.WithValue(ctx2, "key", i)
+		go wp.run(Childctx)
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Println("shutdownctx")
-			wp.wg.Wait()
-			close(wp.results)
-			cancel()
-			return
-		case <-ctx3.Done():
-			fmt.Println("timeout")
-			cancel()
-			wp.wg.Wait()
-			close(wp.results)
-			return
-		}
+	select {
+	case <-ctx.Done():
+		fmt.Println("shutdownctx")
+		// break
+	case <-ctx3.Done():
+		fmt.Println("timeout")
+		// break
 	}
+	fmt.Println("qwewre time")
+	cancel()
+	fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'+')
+
+	wp.wg.Wait()
+	close(wp.results)
+	return
 }
+
 
 func (wp *workerPool) Tasks() chan *Task {
 	return wp.tasks
@@ -83,17 +85,20 @@ func (wp *workerPool) run(ctx context.Context) {
 	//
 	// Keeps fetching task from the task channel, do the task,
 	// then makes sure to exit if context is done.
-	defer wp.wg.Done()
+	// defer wp.wg.Done()
 	for {
 		select {
-		case shutdown := <-ctx.Done():
-			fmt.Println(shutdown)
-			return
-		case t,ok := <-wp.tasks:
+		case t,ok := <-wp.Tasks():
 			if ok {
+				fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'+')
 				result := t.Func(t.Args...)
+				fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'-')
 				wp.results <- result
 			}
+		case <-ctx.Done():
+			fmt.Println(ctx.Value("key"))
+			wp.wg.Done()
+			return
 		}
 	}
 }

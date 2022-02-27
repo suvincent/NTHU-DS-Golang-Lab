@@ -3,6 +3,8 @@ package workerpool
 import (
 	"context"
 	"sync"
+	"fmt"
+	"time"
 )
 
 type Task struct {
@@ -44,6 +46,28 @@ func (wp *workerPool) Start(ctx context.Context) {
 	//
 	// Starts numWorkers of goroutines, wait until all jobs are done.
 	// Remember to closed the result channel before exit.
+	ctx2, cancel := context.WithCancel(ctx)
+	ctx3, _ := context.WithTimeout(ctx, 1* time.Second)
+	for i:=0; i < wp.numWorkers; i++ {
+		wp.wg.Add(1)
+		go wp.run(ctx2)
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("shutdownctx")
+			wp.wg.Wait()
+			close(wp.results)
+			cancel()
+			return
+		case <-ctx3.Done():
+			fmt.Println("timeout")
+			cancel()
+			wp.wg.Wait()
+			close(wp.results)
+			return
+		}
+	}
 }
 
 func (wp *workerPool) Tasks() chan *Task {
@@ -59,4 +83,17 @@ func (wp *workerPool) run(ctx context.Context) {
 	//
 	// Keeps fetching task from the task channel, do the task,
 	// then makes sure to exit if context is done.
+	defer wp.wg.Done()
+	for {
+		select {
+		case shutdown := <-ctx.Done():
+			fmt.Println(shutdown)
+			return
+		case t,ok := <-wp.tasks:
+			if ok {
+				result := t.Func(t.Args...)
+				wp.results <- result
+			}
+		}
+	}
 }

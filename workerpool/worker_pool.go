@@ -48,7 +48,7 @@ func (wp *workerPool) Start(ctx context.Context) {
 	// Remember to closed the result channel before exit.
 	// defer close(wp.results)
 	ctx2, cancel := context.WithCancel(ctx)
-	ctx3, _ := context.WithTimeout(ctx, 1* time.Second)
+	ctx3, _ := context.WithTimeout(ctx, 2* time.Second)
 	for i:=0; i < wp.numWorkers; i++ {
 		wp.wg.Add(1)
 		Childctx := context.WithValue(ctx2, "key", i)
@@ -61,7 +61,7 @@ func (wp *workerPool) Start(ctx context.Context) {
 		fmt.Println("timeout")
 	}
 	cancel()
-	fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'+')
+	// fmt.Println(time.Now().UnixNano() / int64(time.Millisecond),'+')
 	wp.wg.Wait()
 	close(wp.results)
 	return
@@ -92,7 +92,12 @@ func (wp *workerPool) run(ctx context.Context) {
 				result := t.Func(t.Args...)
 				wp.results <- result
 			}
-		
+			select {
+			case <-ctx.Done():
+				fmt.Println(ctx.Value("key"))
+				return
+			default:
+			}
 		}
 	}
 }
